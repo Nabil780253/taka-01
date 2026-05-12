@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user account data including balance and stats",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "balance": { "type": "number" },
+        "referrals": { "type": "number" },
+        "totalAds": { "type": "number" },
+        "hourlyAds": { "type": "number" },
+        "totalIncome": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "balance", "referrals", "totalAds", "hourlyAds", "totalIncome"]
+    },
+    "RechargeRequest": {
+      "title": "Recharge Request",
+      "description": "Stores transaction details for deposit verification",
+      "type": "object",
+      "properties": {
+        "transactionId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["transactionId", "amount", "status", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/rechargeRequests/{requestId}": {
+      "schema": "RechargeRequest",
+      "description": "Verification requests for 100 TK recharge"
+    }
+  }
+}

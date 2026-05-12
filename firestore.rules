@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        let requiredKeys = ['name', 'phone', 'balance', 'referrals', 'totalAds', 'hourlyAds', 'totalIncome', 'createdAt'];
+        return data.keys().hasAll(requiredKeys) 
+               && data.keys().size() >= 8
+               && data.name is string && data.name.size() <= 100
+               && data.phone is string && data.phone.size() <= 15
+               && data.balance is number
+               && data.referrals is number
+               && data.totalAds is number
+               && data.hourlyAds is number
+               && data.totalIncome is number
+               && data.createdAt is timestamp;
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        // Action: Update Stats/Balance
+        incoming().diff(existing()).affectedKeys().hasAny(['balance', 'totalAds', 'hourlyAds', 'totalIncome', 'referrals'])
+        || incoming().diff(existing()).affectedKeys().hasOnly(['name'])
+      );
+    }
+
+    // --- Recharge Requests ---
+    match /rechargeRequests/{requestId} {
+      function isValidRecharge(data) {
+        return data.keys().hasAll(['transactionId', 'amount', 'status', 'userId', 'createdAt'])
+               && data.keys().size() == 5
+               && data.transactionId is string && data.transactionId.size() >= 5 && data.transactionId.size() <= 50
+               && data.amount == 100
+               && data.status == 'pending'
+               && data.userId == request.auth.uid
+               && data.createdAt == request.time;
+      }
+
+      allow create: if isSignedIn() && isValidRecharge(incoming());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
